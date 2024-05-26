@@ -689,6 +689,7 @@ export const compileSource = async (
   engine: Engine,
   ctx: EngineContext
 ): Promise<CompileResult | NodeErrors> => {
+  debugger
   const result = await computeGraphContext(ctx, engine, graph);
   if (isError(result)) {
     return result;

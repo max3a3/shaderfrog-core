@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import * as core from '@shaderfrog/core';
+import * as core from '../src/';
+import {  linkFromVertToFrag} from "../src/graph"
 import { generate } from '@shaderfrog/glsl-parser';
-import { engine, createMaterial } from '@shaderfrog/core/dist/plugins/three';
+import { engine, createMaterial } from '../src/plugins/three';
+import {createCheckerGraph} from "./checker";
+import {createJuliaGraph} from "./julia";
 
 /**
  * Standard Three.js setup
@@ -20,6 +23,9 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x222222);
 document.body.appendChild(renderer.domElement);
 
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+scene.add(ambientLight);
+
 const pointLight = new THREE.PointLight(0xffffff, 1);
 pointLight.position.set(1, 0, 1);
 const helper = new THREE.PointLightHelper(pointLight, 0.1);
@@ -27,7 +33,9 @@ scene.add(pointLight);
 scene.add(helper);
 
 // const geometry = new THREE.TorusKnotGeometry(0.6, 0.25, 200, 32);
-const geometry = new THREE.BoxGeometry(1, 1, 1, 32, 32, 32);
+const geometry = new THREE.SphereGeometry(1, 132, 132);
+
+// const geometry = new THREE.BoxGeometry(1, 1, 1, 32, 32, 32);
 const mesh = new THREE.Mesh(geometry);
 scene.add(mesh);
 
@@ -58,7 +66,7 @@ animate();
 let id = 0;
 const makeId = () => `id_${id++}`;
 
-const outFrom = (node) => node.outputs[0].name;
+const outFrom = (node) => node.outputs[0].id;
 const edgeFrom = (fromNode, toId, input, type) =>
   core.makeEdge(makeId(), fromNode.id, toId, outFrom(fromNode), input, type);
 
@@ -207,19 +215,24 @@ const juliaV = makeJuliaV(makeId(), fId);
 /**
  * Build the graph
  */
-const graph = {
+const graph2 = {
   nodes: [juliaF, juliaV, physicalF, physicalV, outputF, outputV],
   edges: [
-    edgeFrom(juliaF, physicalF.id, 'property_normalMap', 'fragment'),
+    linkFromVertToFrag(makeId(), physicalV.id, physicalF.id),
+    linkFromVertToFrag(makeId(), juliaV.id, juliaF.id),
+
+    edgeFrom(juliaF, physicalF.id, 'property_map', 'fragment'),
     edgeFrom(physicalF, outputF.id, 'filler_frogFragOut', 'fragment'),
     edgeFrom(physicalV, outputV.id, 'filler_gl_Position', 'vertex'),
   ],
 };
 
+const graph = createCheckerGraph()
+const graph3 = createJuliaGraph()
 /**
  * Compile the graph to GLSL
  */
-core.compileSource(graph, engine, ctx).then((compileResult) => {
+core.compileSource(graph,  engine, ctx).then((compileResult) => {
   /**
    * Convert the compiled GLSL to a RawShaderMaterial
    */
